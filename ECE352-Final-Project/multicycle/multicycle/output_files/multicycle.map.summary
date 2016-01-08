@@ -1,0 +1,17 @@
+Analysis & Synthesis Status : Successful - Thu Nov 05 14:07:32 2015
+Quartus II 64-Bit Version : 15.0.0 Build 145 04/22/2015 SJ Full Version
+Revision Name : multicycle
+Top-level Entity Name : multicycle
+Family : Cyclone V
+Logic utilization (in ALMs) : N/A
+Total registers : 64
+Total pins : 45
+Total virtual pins : 0
+Total block memory bits : 2,048
+Total DSP Blocks : 0
+Total HSSI RX PCSs : 0
+Total HSSI PMA RX Deserializers : 0
+Total HSSI TX PCSs : 0
+Total HSSI PMA TX Serializers : 0
+Total PLLs : 0
+Total DLLs : 0
