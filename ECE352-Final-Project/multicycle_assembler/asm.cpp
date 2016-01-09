@@ -7,10 +7,12 @@ the width of memory/data/instructions is a single byte, but can
 support any depth by means of the MEM_SIZE constant.
 
 Change R.Willenberg - Oct 2012: Also produces a *.mem file for ModelSim simulation purposes
+Change F.Martin del Campo - Nov 2015: Added cstring library and changed b and e variables to size_t. This version works with the cywin included with altera 15.0
 */
 
 #include <iostream>
 #include <fstream>
+#include <cstring>
 #include <string>
 #include <cstdlib>
 #include <map>
@@ -229,11 +231,11 @@ int main(int argc, char* argv[])
 
 	while (!infile.eof())
 	{
-		getline(infile, line);
+		std::getline(infile, line);
 		if (line.length() > 0 && line[line.length()-1] == '\r')
 			line.resize(line.length() - 1);
 		string col1, col2, col3;
-		unsigned int b, e;
+		size_t b, e;
 
 		line_count++;
 
@@ -241,7 +243,8 @@ int main(int argc, char* argv[])
 		{
 			// is line empty or is it a comment?
 			b = line.find_first_not_of(" \t", 0);
-			if (b == string::npos || line[b] == ';')
+			
+			if (b == string::npos || line[b] == ';' || line.length() == 1)
 				continue;
 
 			if (line[0] == ' ' || line[0] == '\t')
