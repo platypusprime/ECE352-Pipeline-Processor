@@ -19,35 +19,58 @@
 
 module PipelineControl
 (
-reset, clock, /*instrDE,*/ instrRF, instrEX, instrWB, N, Z,
-PCwrite, PCSel, MemRead, MemWrite, /*IRDEload,*/ IRRFload, IREXload, IRWBload, 
-MDRload, R1Sel, RWSel, RegIn, RFWrite, R1R2Load, 
-ALU1, ALU2, ALUop, ALU_PCop, ALUOutWrite, FlagWrite,
-cycles
+reset, clock, instrRF, instrEX, instrWB, N, Z,
+RFLoad, EXLoad, WBLoad, PCwrite, WBRegWrite, FlagWrite,
+MemRead, MemWrite, RFWrite, PCSel, RFin1Sel, RWSel, R1inSel, R2inSel, WBRegSel,
+ALU1Sel, ALU2Sel, ALUPCOp, ALUop, cycles
 );
 	// inputs
 	input	reset, clock;
-	input	[3:0] /*instrDE,*/ instrRF, instrEX, instrWB;
+	input	[7:0] instrRF, instrEX, instrWB;
 	input	N, Z;
 	
 	// outputs
-	output	PCwrite, PCSel, MemRead, MemWrite, /*IRDEload,*/ IRRFload, IREXload, IRWBload;
-	output	MDRload, R1Sel, RWSel, RegIn, RFWrite, R1R2Load;
-	output	[2:0] ALU2, ALUop, ALU_PCop;
-	output	ALU1, ALUOutWrite, FlagWrite;
+	output	RFLoad, EXLoad, WBLoad, PCwrite, WBRegWrite, FlagWrite;
+	output	MemRead, MemWrite, RFWrite;
+	output	PCSel, RFin1Sel, RWSel, R1inSel, R2inSel, WBRegSel;
+	output	[1:0] ALU1Sel;
+	output	[2:0] ALU2Sel, ALUop, ALUPCOp;
 	output	[15:0] cycles;
-	
+
 	// internal registers
-	reg		PCwrite, PCSel, MemRead, MemWrite, /*IRDEload,*/ IRRFload, IREXload, IRWBload;
-	reg		MDRload, R1Sel, RWSel, RegIn, RFWrite, R1R2Load;
-	reg		[2:0] ALU2, ALUop, ALU_PCop;
-	reg		ALU1, ALUOutWrite, FlagWrite;
+	reg		RFLoad, EXLoad, WBLoad, PCwrite, WBRegWrite, FlagWrite;
+	reg		MemRead, MemWrite, RFWrite;
+	reg		PCSel, RFin1Sel, RWSel, R1inSel, R2inSel, WBRegSel;
+	reg		[1:0] ALU1Sel;
+	reg		[2:0] ALU2Sel, ALUop, ALUPCOp;
 	reg 	[15:0] cycles;
 	reg 	state; // either running or not
-	reg 	[2:0] branch_pending;
+	reg 	[2:0] BRCTR;
 	
 	// state constants
 	parameter run_s = 0, stop_s = 1;
+	
+	// instr constants
+	parameter [3:0] LOAD = 4'b0000;
+	parameter [3:0] STORE = 4'b0010;
+	parameter [3:0] ADD = 4'b0100;
+	parameter [3:0] SUB = 4'b0110;
+	parameter [3:0] NAND = 4'b1000;
+	parameter [2:0] ORI = 3'b111;
+	parameter [2:0] SHIFT = 3'b011;
+	parameter [3:0] BZ = 4'b0101;
+	parameter [3:0] BNZ = 4'b1001;
+	parameter [3:0] BPZ = 4'b1101;
+	parameter [3:0] NOP = 4'b1010;
+	parameter [3:0] STOP = 4'b0001;
+	
+	// ALU operation constants
+	parameter [2:0] A_ADD = 0;
+	parameter [2:0] A_SUB = 1;
+	parameter [2:0] A_ORI = 2;
+	parameter [2:0] A_NAND = 3;
+	parameter [2:0] A_SHIFT = 4;
+	parameter [2:0] A_RESET = 5;
 	
 	// determines whether to keep the processor running; supports asynchronous reset
 	always @(posedge clock or posedge reset)
@@ -55,20 +78,24 @@ cycles
 		if (reset) begin 
 			state = run_s;
 			cycles <= 16'b0;
+			BRCTR <= 0;
 		end
 		
 		else begin
 			case(state)
 				run_s:	begin
-					if( instrRF != 4'b0001 & instrEX != 4'b0001 & instrWB != 4'b0001 )
+					if( instrRF[3:0] != STOP & instrEX[3:0] != STOP & instrWB[3:0] != STOP )
 						cycles = cycles + 1;
-					if( instrWB == 4'b0001 )	state = stop_s; // STOP
-					else 						state = run_s;
 					
-					if(instrEX == 4'b1101 & ~N) branch_pending = 3;
-					else if(instrEX == 4'b0101 & Z) branch_pending = 3;
-					else if(instrEX == 4'b1001 & ~Z) branch_pending = 3;
-					else if (branch_pending != 0) branch_pending = branch_pending -1;
+					if( instrWB[3:0] == STOP )
+						state = stop_s;
+					else
+						state = run_s;
+					
+					if( instrEX[3:0] == BPZ & ~N ) BRCTR = 3;
+					else if( instrEX[3:0] == BZ & Z ) BRCTR = 3;
+					else if( instrEX[3:0] == BNZ & ~Z ) BRCTR = 3;
+					else if( BRCTR != 0 ) BRCTR = BRCTR -1;
 				end
 				stop_s:	state = stop_s;
 			endcase
@@ -76,192 +103,395 @@ cycles
 	end
 
 	// sets the control sequences based upon the current state and instruction
-	always @(/*instrRF or instrEX or instrWB*/*)
+	always @(*)
 	begin
 		case (state)
 			run_s: begin
 				// Fetch stage
-				MemRead = 1;
-				// IRDEload = 1;
-				IRRFload = 1;
+				MemRead = 1; 	// always read from memory
+				RFLoad = 1;		// always load instruction to RF stage
 				
 				
 				// DEC/RF stage
-				IREXload = 1;
-				R1R2Load = 1;
-				if (instrRF/*DE*/[2:0] == 3'b111)
-					R1Sel = 1;
-				else
-					R1Sel = 0;
+				//if (BRCTR == 0 | BRCTR == 1 ) EXLoad = 1;
+				//else EXLoad = 0;
+				EXLoad = 1;
+				// TODO try this: RFin1Sel = (instrRF[2:0] == ORI);
+				if (instrRF[2:0] == ORI)	RFin1Sel = 1; // select 2'b1
+				else 						RFin1Sel = 0; // select IRRF[7:6]
+				
+				if ( instrRF[2:0] == ORI ) begin
+					if ((instrWB[3:0] == ADD | instrWB[3:0] == SUB | 
+						instrWB[3:0] == NAND | instrWB[2:0] == SHIFT |
+						(instrWB[3:0] == LOAD & cycles > 3 /* check this number */))
+						& BRCTR == 0 ) begin
+						if ( 2'b01 == instrWB[7:6] ) begin
+							R1inSel = 0; // load from WBRegOut
+							R2inSel = 1;
+						end else begin
+							R1inSel = 1;
+							R2inSel = 1;
+						end
+					end else if ( instrWB[2:0] == ORI & BRCTR == 0 ) begin
+						R1inSel = 0; // load from WBRegOut
+						R2inSel = 1;
+					end else begin 
+						R1inSel = 1;
+						R2inSel = 1;
+					end
+				end else begin
+					if ( (instrWB[3:0] == ADD | instrWB[3:0] == SUB | 
+						instrWB[3:0] == NAND | instrWB[2:0] == SHIFT | 
+						(instrWB[3:0] == LOAD & cycles > 3 /* check this number */))
+						& BRCTR == 0 ) begin
+						if ( instrRF[7:6] == instrWB[7:6] & instrRF[5:4] == instrWB[7:6] ) begin
+							R1inSel = 0; // load from WBRegOut
+							R2inSel = 0; // load from WBRegOut
+						end else if ( instrRF[7:6] == instrWB[7:6] ) begin
+							R1inSel = 0; // load from WBRegOut
+							R2inSel = 1;
+						end else if ( instrRF[5:4] == instrWB[7:6] ) begin
+							R1inSel = 1;
+							R2inSel = 0; // load from WBRegOut
+						end else begin
+							R1inSel = 1;
+							R2inSel = 1;
+						end
+					end else if ( instrWB[2:0] == ORI & BRCTR == 0 ) begin
+						if ( instrRF[7:6] == 2'b01 & instrRF[5:4] == 2'b01 ) begin
+							R1inSel = 0; // load from WBRegOut
+							R2inSel = 0; // load from WBRegOut
+						end else if ( instrRF[7:6] == 2'b01 ) begin
+							R1inSel = 0; // load from WBRegOut
+							R2inSel = 1;
+						end else if ( instrRF[5:4] == 2'b01 ) begin
+							R1inSel = 1;
+							R2inSel = 0; // load from WBRegOut
+						end else begin
+							R1inSel = 1;
+							R2inSel = 1;
+						end
+					end else begin 
+						R1inSel = 1;
+						R2inSel = 1;
+					end
+				end
 				
 				// EX stage
-				IRWBload = 1;
-				PCwrite = 1;
-				
-				/*if(instrEX == 4'b1101 & ~N) branch_pending = 3;
-				else if(instrEX == 4'b0101 & Z) branch_pending = 3;
-				else if(instrEX == 4'b1001 & ~Z) branch_pending = 3;
-				else if (branch_pending != 0) branch_pending = branch_pending -1;*/
+				/*if (BRCTR == 0 | BRCTR == 3)*/ WBLoad = 1;
+				//else WBLoad = 0;
+				PCwrite = 1;	// always update PC
 								
-				if (instrEX == 4'b0100) begin		// ADD
+				if (instrEX[3:0] == ADD) begin
 					PCSel = 0;
 					MemWrite = 0;
-					MDRload = 0;
-					ALU1 = 1;
-					ALU2 = 3'b000;
-					ALUop = 3'b000;
-					ALU_PCop = 3'b000;
-					ALUOutWrite = 1;
-					// FlagWrite = 1;
-					if (branch_pending == 0) FlagWrite = 1;
+					if ( (instrWB[3:0] == ADD | instrWB[3:0] == SUB | 
+						instrWB[3:0] == NAND | instrWB[2:0] == SHIFT |
+						(instrWB[3:0] == LOAD & cycles > 3 /* check this number */))
+						& BRCTR == 0 ) begin
+						if ( instrEX[7:6] == instrWB[7:6] & instrEX[5:4] == instrWB[7:6]) begin
+							ALU1Sel = 2'b10; 	// choose WBRegOut as ALU1
+							ALU2Sel = 3'b001;	// choose WBRegOut as ALU2
+						end else if ( instrEX[7:6] == instrWB[7:6] ) begin
+							ALU1Sel = 2'b10; 	// choose WBRegOut as ALU1
+							ALU2Sel = 3'b000;	// choose R2RegOut as ALU2
+						end else if ( instrEX[5:4] == instrWB[7:6] ) begin
+							ALU1Sel = 2'b01; 	// choose R1RegOut as ALU1
+							ALU2Sel = 3'b001;	// choose WBRegOut as ALU2
+						end else begin
+							ALU1Sel = 2'b01;	// choose R1RegOut as ALU1
+							ALU2Sel = 3'b000;	// choose R2RegOut as ALU2
+						end
+					end else if ( instrWB[2:0] == ORI & BRCTR == 0 ) begin
+						if ( instrEX[7:6] == 2'b01 & instrEX[5:4] == 2'b01) begin
+							ALU1Sel = 2'b10; 	// choose WBRegOut as ALU1
+							ALU2Sel = 3'b001;	// choose WBRegOut as ALU2
+						end else if ( instrEX[7:6] == 2'b01 ) begin
+							ALU1Sel = 2'b10; 	// choose WBRegOut as ALU1
+							ALU2Sel = 3'b000;	// choose R2RegOut as ALU2
+						end else if ( instrEX[5:4] == 2'b01 ) begin
+							ALU1Sel = 2'b01; 	// choose R1RegOut as ALU1
+							ALU2Sel = 3'b001;	// choose WBRegOut as ALU2
+						end else begin
+							ALU1Sel = 2'b01;	// choose R1RegOut as ALU1
+							ALU2Sel = 3'b000;	// choose R2RegOut as ALU2
+						end
+					end else begin
+						ALU1Sel = 2'b01;	// choose R1RegOut as ALU1
+						ALU2Sel = 3'b000;	// choose R2RegOut as ALU2
+					end
+					ALUop = A_ADD;
+					ALUPCOp = 3'b000;
+					WBRegSel = 0;
+					WBRegWrite = 1;
+					if (BRCTR == 0) FlagWrite = 1;
 					else FlagWrite = 0;
 				end	
-				else if (instrEX == 4'b0110) begin	// SUB
+				else if (instrEX[3:0] == SUB) begin
 					PCSel = 0;
 					MemWrite = 0;
-					MDRload = 0;
-					ALU1 = 1;
-					ALU2 = 3'b000;
-					ALUop = 3'b001;
-					ALU_PCop = 3'b000;
-					ALUOutWrite = 1;
-					// FlagWrite = 1;
-					if (branch_pending == 0) FlagWrite = 1;
+					if ( (instrWB[3:0] == ADD | instrWB[3:0] == SUB | 
+						instrWB[3:0] == NAND | instrWB[2:0] == SHIFT |
+						(instrWB[3:0] == LOAD & cycles > 3 /* check this number */))
+						& BRCTR == 0 ) begin
+						if ( instrEX[7:6] == instrWB[7:6] & instrEX[5:4] == instrWB[7:6]) begin
+							ALU1Sel = 2'b10; 	// choose WBRegOut as ALU1
+							ALU2Sel = 3'b001;	// choose WBRegOut as ALU2
+						end else if ( instrEX[7:6] == instrWB[7:6] ) begin
+							ALU1Sel = 2'b10; 	// choose WBRegOut as ALU1
+							ALU2Sel = 3'b000;	// choose R2RegOut as ALU2
+						end else if ( instrEX[5:4] == instrWB[7:6] ) begin
+							ALU1Sel = 2'b01; 	// choose R1RegOut as ALU1
+							ALU2Sel = 3'b001;	// choose WBRegOut as ALU2
+						end else begin
+							ALU1Sel = 2'b01;	// choose R1RegOut as ALU1
+							ALU2Sel = 3'b000;	// choose R2RegOut as ALU2
+						end
+					end else if ( instrWB[2:0] == ORI & BRCTR == 0 ) begin
+						if ( instrEX[7:6] == 2'b01 & instrEX[5:4] == 2'b01) begin
+							ALU1Sel = 2'b10; 	// choose WBRegOut as ALU1
+							ALU2Sel = 3'b001;	// choose WBRegOut as ALU2
+						end else if ( instrEX[7:6] == 2'b01 ) begin
+							ALU1Sel = 2'b10; 	// choose WBRegOut as ALU1
+							ALU2Sel = 3'b000;	// choose R2RegOut as ALU2
+						end else if ( instrEX[5:4] == 2'b01 ) begin
+							ALU1Sel = 2'b01; 	// choose R1RegOut as ALU1
+							ALU2Sel = 3'b001;	// choose WBRegOut as ALU2
+						end else begin
+							ALU1Sel = 2'b01;	// choose R1RegOut as ALU1
+							ALU2Sel = 3'b000;	// choose R2RegOut as ALU2
+						end
+					end else begin
+						ALU1Sel = 2'b01;	// choose R1RegOut as ALU1
+						ALU2Sel = 3'b000;	// choose R2RegOut as ALU2
+					end
+					ALUop = A_SUB;
+					ALUPCOp = 3'b000;
+					WBRegSel = 0;
+					WBRegWrite = 1;
+					if (BRCTR == 0) FlagWrite = 1;
 					else FlagWrite = 0;
 				end
-				else if (instrEX == 4'b1000) begin	// NAND
+				else if (instrEX[3:0] == NAND) begin
 					PCSel = 0;
 					MemWrite = 0;
-					MDRload = 0;
-					ALU1 = 1;
-					ALU2 = 3'b000;
-					ALUop = 3'b011;
-					ALU_PCop = 3'b000;
-					ALUOutWrite = 1;
-					// FlagWrite = 1;
-					if (branch_pending == 0) FlagWrite = 1;
+					if ( (instrWB[3:0] == ADD | instrWB[3:0] == SUB | 
+						instrWB[3:0] == NAND | instrWB[2:0] == SHIFT |
+						(instrWB[3:0] == LOAD & cycles > 3 /* check this number */))
+						& BRCTR == 0 ) begin
+						if ( instrEX[7:6] == instrWB[7:6] & instrEX[5:4] == instrWB[7:6]) begin
+							ALU1Sel = 2'b10; 	// choose WBRegOut as ALU1
+							ALU2Sel = 3'b001;	// choose WBRegOut as ALU2
+						end else if ( instrEX[7:6] == instrWB[7:6] ) begin
+							ALU1Sel = 2'b10; 	// choose WBRegOut as ALU1
+							ALU2Sel = 3'b000;	// choose R2RegOut as ALU2
+						end else if ( instrEX[5:4] == instrWB[7:6] ) begin
+							ALU1Sel = 2'b01; 	// choose R1RegOut as ALU1
+							ALU2Sel = 3'b001;	// choose WBRegOut as ALU2
+						end else begin
+							ALU1Sel = 2'b01;	// choose R1RegOut as ALU1
+							ALU2Sel = 3'b000;	// choose R2RegOut as ALU2
+						end
+					end else if ( instrWB[2:0] == ORI & BRCTR == 0 ) begin
+						if ( instrEX[7:6] == 2'b01 & instrEX[5:4] == 2'b01) begin
+							ALU1Sel = 2'b10; 	// choose WBRegOut as ALU1
+							ALU2Sel = 3'b001;	// choose WBRegOut as ALU2
+						end else if ( instrEX[7:6] == 2'b01 ) begin
+							ALU1Sel = 2'b10; 	// choose WBRegOut as ALU1
+							ALU2Sel = 3'b000;	// choose R2RegOut as ALU2
+						end else if ( instrEX[5:4] == 2'b01 ) begin
+							ALU1Sel = 2'b01; 	// choose R1RegOut as ALU1
+							ALU2Sel = 3'b001;	// choose WBRegOut as ALU2
+						end else begin
+							ALU1Sel = 2'b01;	// choose R1RegOut as ALU1
+							ALU2Sel = 3'b000;	// choose R2RegOut as ALU2
+						end
+					end else begin
+						ALU1Sel = 2'b01;	// choose R1RegOut as ALU1
+						ALU2Sel = 3'b000;	// choose R2RegOut as ALU2
+					end
+					ALUop = A_NAND;
+					ALUPCOp = 3'b000;
+					WBRegSel = 0;
+					WBRegWrite = 1;
+					if (BRCTR == 0) FlagWrite = 1;
 					else FlagWrite = 0;
 				end
-				else if (instrEX[2:0] == 3'b011) begin	// SHIFT
+				else if (instrEX[2:0] == SHIFT) begin
 					PCSel = 0;
 					MemWrite = 0;
-					MDRload = 0;
-					ALU1 = 1;
-					ALU2 = 3'b100;
-					ALUop = 3'b100;
-					ALU_PCop = 3'b000;
-					ALUOutWrite = 1;
-					// FlagWrite = 1;
-					if (branch_pending == 0) FlagWrite = 1;
+					if ( instrWB[3:0] == ADD | instrWB[3:0] == SUB | 
+						instrWB[3:0] == NAND | instrWB[2:0] == SHIFT |
+						(instrWB[3:0] == LOAD & cycles > 3 /* check this number */)) begin
+						if ( instrEX[7:6] == instrWB[7:6] ) ALU1Sel = 2'b10; 	// choose WBRegOut as ALU1
+						else ALU1Sel = 2'b01;	// choose R1RegOut as ALU1
+					end else if ( instrWB[2:0] == ORI ) begin
+						if ( instrEX[7:6] == 2'b01 ) ALU1Sel = 2'b10; 	// choose WBRegOut as ALU1
+						else ALU1Sel = 2'b01;	// choose R1RegOut as ALU1
+					end else ALU1Sel = 2'b01;	// choose R1RegOut as ALU1
+					ALU2Sel = 3'b100;
+					ALUop = A_SHIFT;
+					ALUPCOp = 3'b000;
+					WBRegSel = 0;
+					WBRegWrite = 1;
+					if (BRCTR == 0) FlagWrite = 1;
 					else FlagWrite = 0;
 				end
-				else if (instrEX[2:0] == 3'b111) begin	// ORI
+				else if (instrEX[2:0] == ORI) begin	// ORI
 					PCSel = 0;
 					MemWrite = 0;
-					MDRload = 0;
-					ALU1 = 1;
-					ALU2 = 3'b011; // TODO check this
-					ALUop = 3'b010;
-					ALU_PCop = 3'b000;
-					ALUOutWrite = 1;
-					// FlagWrite = 1;
-					if (branch_pending == 0) FlagWrite = 1;
+					if ( instrWB[3:0] == ADD | instrWB[3:0] == SUB | 
+						instrWB[3:0] == NAND | instrWB[2:0] == SHIFT |
+						(instrWB[3:0] == LOAD & cycles > 3 /* check this number */)) begin
+						if ( 2'b01 == instrWB[7:6] ) ALU1Sel = 2'b10; 	// choose WBRegOut as ALU1
+						else ALU1Sel = 2'b01;	// choose R1RegOut as ALU1
+					end else if ( instrWB[2:0] == ORI ) ALU1Sel = 2'b10; 	// choose WBRegOut as ALU1
+					else ALU1Sel = 2'b01;	// choose R1RegOut as ALU1
+					ALU2Sel = 3'b011;
+					ALUop = A_ORI;
+					ALUPCOp = 3'b000;
+					WBRegSel = 0;
+					WBRegWrite = 1;
+					if (BRCTR == 0) FlagWrite = 1;
 					else FlagWrite = 0;
 				end
-				else if (instrEX == 4'b0010) begin	// STORE
+				else if (instrEX[3:0] == STORE) begin	// STORE
 					PCSel = 0;
 					MemWrite = 1;
-					MDRload = 0;
-					ALU1 = 0;
-					ALU2 = 3'b000;
+					
+					if ( (instrWB[3:0] == ADD | instrWB[3:0] == SUB | 
+						instrWB[3:0] == NAND | instrWB[2:0] == SHIFT |
+						(instrWB[3:0] == LOAD & cycles > 3 /* check this number */))
+						& BRCTR == 0 ) begin
+						if ( instrEX[7:6] == instrWB[7:6] & instrEX[5:4] == instrWB[7:6]) begin
+							ALU1Sel = 2'b10; 	// choose WBRegOut as ALU1
+							ALU2Sel = 3'b001;	// choose WBRegOut as ALU2
+						end else if ( instrEX[7:6] == instrWB[7:6] ) begin
+							ALU1Sel = 2'b10; 	// choose WBRegOut as ALU1
+							ALU2Sel = 3'b000;	// choose R2RegOut as ALU2
+						end else if ( instrEX[5:4] == instrWB[7:6] ) begin
+							ALU1Sel = 2'b01; 	// choose R1RegOut as ALU1
+							ALU2Sel = 3'b001;	// choose WBRegOut as ALU2
+						end else begin
+							ALU1Sel = 2'b01;	// choose R1RegOut as ALU1
+							ALU2Sel = 3'b000;	// choose R2RegOut as ALU2
+						end
+					end else if ( instrWB[2:0] == ORI & BRCTR == 0 ) begin
+						if ( instrEX[7:6] == 2'b01 & instrEX[5:4] == 2'b01) begin
+							ALU1Sel = 2'b10; 	// choose WBRegOut as ALU1
+							ALU2Sel = 3'b001;	// choose WBRegOut as ALU2
+						end else if ( instrEX[7:6] == 2'b01 ) begin
+							ALU1Sel = 2'b10; 	// choose WBRegOut as ALU1
+							ALU2Sel = 3'b000;	// choose R2RegOut as ALU2
+						end else if ( instrEX[5:4] == 2'b01 ) begin
+							ALU1Sel = 2'b01; 	// choose R1RegOut as ALU1
+							ALU2Sel = 3'b001;	// choose WBRegOut as ALU2
+						end else begin
+							ALU1Sel = 2'b01;	// choose R1RegOut as ALU1
+							ALU2Sel = 3'b000;	// choose R2RegOut as ALU2
+						end
+					end else begin
+						ALU1Sel = 2'b01;	// choose R1RegOut as ALU1
+						ALU2Sel = 3'b000;	// choose R2RegOut as ALU2
+					end
+					
+					
+					//ALU1Sel = 0;
+					//ALU2Sel = 3'b000;
 					ALUop = 3'b000;
-					ALU_PCop = 3'b000;
-					ALUOutWrite = 0;
+					ALUPCOp = 3'b000;
+					WBRegSel = 0;
+					WBRegWrite = 0;
 					FlagWrite = 0;
 				end
-				else if (instrEX == 4'b0000 & cycles > 2 ) begin	// LOAD
+				else if (instrEX[3:0] == LOAD & cycles > 2 ) begin	// LOAD
 					PCSel = 0;
 					MemWrite = 0;
-					MDRload = 1;
-					ALU1 = 0;
-					ALU2 = 3'b000;
+					ALU1Sel = 0;
+					if ( instrWB[3:0] == ADD | instrWB[3:0] == SUB | 
+						instrWB[3:0] == NAND | instrWB[2:0] == SHIFT |
+						(instrWB[3:0] == LOAD & cycles > 3 /* check this number */)) begin
+						if ( instrEX[5:4] == instrWB[7:6] ) ALU2Sel = 3'b001;
+						else ALU2Sel = 3'b000;
+					end else if ( instrWB[2:0] == ORI ) begin
+						if ( instrEX[5:4] == 2'b01 ) ALU2Sel = 3'b001;
+						else ALU2Sel = 3'b000;
+					end else ALU2Sel = 3'b000;
+					//ALU2Sel = 3'b000;
 					ALUop = 3'b000;
-					ALU_PCop = 3'b000;
-					ALUOutWrite = 0;
+					ALUPCOp = 3'b000;
+					WBRegSel = 1;
+					WBRegWrite = 1;
 					FlagWrite = 0;
 				end
-				else if (instrEX == 4'b1101) begin	// BPZ
+				else if (instrEX[3:0] == BPZ) begin	// BPZ
 					PCSel = ~N;
 					MemWrite = 0;
-					MDRload = 0;
-					ALU1 = 0;
-					ALU2 = 3'b010;
+					ALU1Sel = 0;
+					ALU2Sel = 3'b010;
 					ALUop = 3'b000;
-					ALU_PCop = 3'b001;
-					ALUOutWrite = 0;
+					if (~N)	ALUPCOp = 3'b001;
+					else ALUPCOp = 3'b000;
+					WBRegSel = 0;
+					WBRegWrite = 0;
 					FlagWrite = 0;
 				end
-				else if (instrEX == 4'b0101) begin	// BZ
+				else if (instrEX[3:0] == BZ) begin	// BZ
 					PCSel = Z;
 					MemWrite = 0;
-					MDRload = 0;
-					ALU1 = 0;
-					ALU2 = 3'b010;
+					ALU1Sel = 0;
+					ALU2Sel = 3'b010;
 					ALUop = 3'b000;
-					ALU_PCop = 3'b001;
-					ALUOutWrite = 0;
+					if (Z)	ALUPCOp = 3'b001;
+					else ALUPCOp = 3'b000;
+					WBRegSel = 0;
+					WBRegWrite = 0;
 					FlagWrite = 0;
 				end
-				else if (instrEX == 4'b1001) begin	// BNZ
+				else if (instrEX[3:0] == BNZ) begin	// BNZ
 					PCSel = ~Z;
 					MemWrite = 0;
-					MDRload = 0;
-					ALU1 = 0;
-					ALU2 = 3'b010;
+					ALU1Sel = 0;
+					ALU2Sel = 3'b010;
 					ALUop = 3'b000;
-					ALU_PCop = 3'b001;
-					ALUOutWrite = 0;
+					if (~Z)	ALUPCOp = 3'b001;
+					else ALUPCOp = 3'b000;
+					WBRegSel = 0;
+					WBRegWrite = 0;
 					FlagWrite = 0;
 				end
 				else begin							// default
 					PCSel = 0;
 					MemWrite = 0;
-					MDRload = 0;
-					ALU1 = 0;
-					ALU2 = 3'b000;
+					ALU1Sel = 2'b00;
+					ALU2Sel = 3'b000;
 					ALUop = 3'b000;
-					ALU_PCop = 3'b000;
-					ALUOutWrite = 0;
+					ALUPCOp = 3'b000;
+					WBRegSel = 0;
+					WBRegWrite = 0;
 					FlagWrite = 0;
 				end
 				
 				// WB stage
-				if ( branch_pending == 1 | branch_pending == 2 ) begin
+				if ( BRCTR == 1 | BRCTR == 2 ) begin
 					RWSel = 0;
-					RegIn = 0;
 					RFWrite = 0;
 					end
-				else if (instrWB == 4'b0100 | instrWB == 4'b0110 | instrWB[2:0] == 3'b011 
-					| instrWB == 4'b1000) begin			// ADD SUB NAND SHIFT
+				else if (instrWB[3:0] == ADD | instrWB[3:0] == SUB | 
+						instrWB[2:0] == SHIFT | instrWB[3:0] == NAND) begin
 					RWSel = 0;
-					RegIn = 0;
 					RFWrite = 1;
-					// ALUOutWrite = 0;
 				end
-				else if (instrWB[2:0] == 3'b111) begin	// ORI
+				else if (instrWB[2:0] == ORI) begin
 					RWSel = 1;
-					RegIn = 0;
 					RFWrite = 1;
 				end
-				else if (instrWB == 4'b0000 
-						 & cycles > 3) begin			// LOAD
+				else if (instrWB[3:0] == LOAD & cycles > 3) begin
 					RWSel = 0;
-					RegIn = 1;
 					RFWrite = 1;
 				end
-				else begin								// default
+				else begin
 					RWSel = 0;
-					RegIn = 0;
 					RFWrite = 0;
 				end
 
@@ -270,22 +500,22 @@ cycles
 				PCwrite = 0;
 				MemRead = 0;
 				MemWrite = 0;
-				// IRDEload = 0;
-				IRRFload = 0;
-				IREXload = 0;
-				IRWBload = 0;
-				R1Sel = 0;
+				RFLoad = 0;
+				EXLoad = 0;
+				WBLoad = 0;
+				RFin1Sel = 0;
 				RWSel = 0;
-				MDRload = 0;
-				R1R2Load = 0;
 				PCSel = 0;
-				ALU2 = 3'b000;
+				ALU1Sel = 2'b00;
+				ALU2Sel = 3'b000;
 				ALUop = 3'b000;
-				ALU_PCop = 3'b000;
-				ALUOutWrite = 0;
+				ALUPCOp = 3'b000;
+				WBRegSel = 0;
+				WBRegWrite = 0;
 				RFWrite = 0;
-				RegIn = 0;
 				FlagWrite = 0;
+				R1inSel = 0;
+				R2inSel = 0;
 			end
 		endcase
 	end

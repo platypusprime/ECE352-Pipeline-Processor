@@ -3,6 +3,7 @@ vlib work
 vlog -vlog01compat -work work multicycle.v
 vlog -vlog01compat -work work mux2to1_8bit.v
 vlog -vlog01compat -work work mux2to1_2bit.v
+vlog -vlog01compat -work work mux3to1_8bit.v
 vlog -vlog01compat -work work mux5to1_8bit.v
 vlog -vlog01compat -work work memory.v
 vlog -vlog01compat -work work DualMem.v
