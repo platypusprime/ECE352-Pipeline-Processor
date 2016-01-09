@@ -58,11 +58,12 @@ endmodule
 
 module HEXs
 (
-in0, in1, in2, in3,selH,
+in0, in1, in2, in3, in4, selH,
 out0, out1, out2, out3,
 out4, out5
 );
 input 	[7:0] in0, in1, in2, in3;
+input	[15:0] in4;
 input 	selH;
 output 	[6:0] out0, out1, out2, out3;
 output 	[6:0] out4, out5;
@@ -80,10 +81,10 @@ begin
 	   0: begin
 		hex_in_0 = in0[7:4];
 	   hex_in_1 = in0[3:0];
-	   hex_in_2 = 4'b0;
-	   hex_in_3 = 4'b0;
-	   hex_in_4 = 4'b0;
-	   hex_in_5 = 4'b0;
+	   hex_in_2 = in4[15:12];
+	   hex_in_3 = in4[11:8];
+	   hex_in_4 = in4[7:4];
+	   hex_in_5 = in4[3:0];
       end
 	   1: begin
 	   hex_in_0 = in1[7:4];

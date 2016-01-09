@@ -95,19 +95,6 @@ set_location_assignment PIN_Y19 -to LEDR[6]
 set_location_assignment PIN_W20 -to LEDR[7]
 set_location_assignment PIN_W21 -to LEDR[8]
 set_location_assignment PIN_Y21 -to LEDR[9]
-set_global_assignment -name VERILOG_FILE register_8bit.v
-set_global_assignment -name VERILOG_FILE mux2to1_8bit.v
-set_global_assignment -name VERILOG_FILE mux2to1_2bit.v
-set_global_assignment -name VERILOG_FILE mux5to1_8bit.v
-set_global_assignment -name VERILOG_FILE DualMem.v
-set_global_assignment -name VERILOG_FILE multicycle.v
-set_global_assignment -name VERILOG_FILE DataMemory.v
-set_global_assignment -name VERILOG_FILE ALU.v
-set_global_assignment -name VERILOG_FILE RF.v
-set_global_assignment -name VERILOG_FILE extend.v
-set_global_assignment -name VERILOG_FILE HEX.v
-set_global_assignment -name VERILOG_FILE FSM.v
-set_global_assignment -name BDF_FILE memory.bdf
 set_global_assignment -name MIN_CORE_JUNCTION_TEMP 0
 set_global_assignment -name MAX_CORE_JUNCTION_TEMP 85
 set_location_assignment PIN_AJ4 -to ADC_CS_N
@@ -876,4 +863,18 @@ set_instance_assignment -name PACKAGE_SKEW_COMPENSATION OFF -to HPS_DDR3_CK_N -e
 set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
 set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
 set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
+set_global_assignment -name VERILOG_FILE memory.v
+set_global_assignment -name VERILOG_FILE register_8bit.v
+set_global_assignment -name VERILOG_FILE mux2to1_8bit.v
+set_global_assignment -name VERILOG_FILE mux2to1_2bit.v
+set_global_assignment -name VERILOG_FILE mux5to1_8bit.v
+set_global_assignment -name VERILOG_FILE multicycle.v
+set_global_assignment -name VERILOG_FILE ALU.v
+set_global_assignment -name VERILOG_FILE RF.v
+set_global_assignment -name VERILOG_FILE extend.v
+set_global_assignment -name VERILOG_FILE HEX.v
+set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "23 MM HEAT SINK WITH 200 LFPM AIRFLOW"
+set_global_assignment -name POWER_BOARD_THERMAL_MODEL "NONE (CONSERVATIVE)"
+set_global_assignment -name VERILOG_FILE DualMem.v
+set_global_assignment -name VERILOG_FILE PipelineControl.v
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

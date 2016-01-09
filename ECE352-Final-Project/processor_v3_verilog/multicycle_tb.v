@@ -10,18 +10,19 @@
 module multicycle_tb;
 
 	wire	[6:0] HEX0, HEX1, HEX2, HEX3;
-	wire	[6:0] HEX4, HEX5, HEX6, HEX7;
-	wire	[7:0] LEDG;
+	wire	[6:0] HEX4, HEX5;//, HEX6, HEX7;
+	//wire	[7:0] LEDG;
 	wire	[17:0] LEDR;
 
-	wire	[1:0] KEY, SW;
+	wire	[1:0] KEY;
+	wire	[4:0] SW;
 	
 	reg reset; // active-low
 	reg clock;
 
 	multicycle DUT(
 					SW, KEY, HEX0, HEX1, HEX2, HEX3,
-					HEX4, HEX5, HEX6, HEX7, LEDG, LEDR
+					HEX4, HEX5, LEDR// HEX6, HEX7, LEDG,
 					);
 	
 	initial begin
