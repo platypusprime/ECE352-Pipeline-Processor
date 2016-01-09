@@ -39,10 +39,10 @@ output reg [17:0] LEDR;
 
 // ------------------------- Registers/Wires ------------------------ //
 wire	clock, reset;
-wire	IRLoad, MDRLoad, MemRead, MemWrite, PCWrite, RegIn, AddrSel;
+wire	IRLoad, MDRLoad, MemRead, MemWrite, PCWrite, RegIn;
 wire	ALU1, ALUOutWrite, FlagWrite, R1R2Load, R1Sel, RFWrite;
 wire	[7:0] R2wire, PCwire, R1wire, RFout1wire, RFout2wire;
-wire	[7:0] ALU1wire, ALU2wire, ALUwire, ALUOut, MDRwire, MEMwire;
+wire	[7:0] ALU1wire, ALU2wire, ALUwire, ALUOut, MDRwire, MemDataWire, MemInstrWire;
 wire	[7:0] IR, SE4wire, ZE5wire, ZE3wire, AddrWire, RegWire;
 wire	[7:0] reg0, reg1, reg2, reg3;
 wire	[7:0] constant;
@@ -82,7 +82,7 @@ assign HEX7 = 7'b1111111;
 
 FSM		Control(
 	.reset(reset),.clock(clock),.N(N),.Z(Z),.instr(IR[3:0]),
-	.PCwrite(PCWrite),.AddrSel(AddrSel),.MemRead(MemRead),.MemWrite(MemWrite),
+	.PCwrite(PCWrite),.MemRead(MemRead),.MemWrite(MemWrite),
 	.IRload(IRLoad),.R1Sel(R1Sel),.MDRload(MDRLoad),.R1R2Load(R1R2Load),
 	.ALU1(ALU1),.ALUOutWrite(ALUOutWrite),.RFWrite(RFWrite),.RegIn(RegIn),
 	.FlagWrite(FlagWrite),.ALU2(ALU2),.ALUop(ALUOp)
@@ -90,7 +90,8 @@ FSM		Control(
 
 memory	DataMem(
 	.MemRead(MemRead),.wren(MemWrite),.clock(clock),
-	.address(AddrWire),.data(R1wire),.q(MEMwire)
+	.address(R2wire),.address_pc(PCwire),.data(R1wire),
+	.q(MemDataWire),.q_pc(MemInstrWire)
 );
 
 ALU		ALU(
@@ -107,12 +108,12 @@ RF		RF_block(
 
 register_8bit	IR_reg(
 	.clock(clock),.aclr(reset),.enable(IRLoad),
-	.data(MEMwire),.q(IR)
+	.data(MemInstrWire),.q(IR)
 );
 
 register_8bit	MDR_reg(
 	.clock(clock),.aclr(reset),.enable(MDRLoad),
-	.data(MEMwire),.q(MDRwire)
+	.data(MemDataWire),.q(MDRwire)
 );
 
 register_8bit	PC(
@@ -138,11 +139,6 @@ register_8bit	ALUOut_reg(
 mux2to1_2bit		R1Sel_mux(
 	.data0x(IR[7:6]),.data1x(constant[1:0]),
 	.sel(R1Sel),.result(R1_in)
-);
-
-mux2to1_8bit 		AddrSel_mux(
-	.data0x(R2wire),.data1x(PCwire),
-	.sel(AddrSel),.result(AddrWire)
 );
 
 mux2to1_8bit 		RegMux(
@@ -196,7 +192,7 @@ begin
       LEDR[9] = 0;
       LEDR[8] = 0;
       LEDR[7] = PCWrite;
-      LEDR[6] = AddrSel;
+      LEDR[6] = 0;
       LEDR[5] = MemRead;
       LEDR[4] = MemWrite;
       LEDR[3] = IRLoad;

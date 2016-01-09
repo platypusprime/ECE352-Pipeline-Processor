@@ -21,7 +21,7 @@ module FSM
 (
 reset, instr, clock,
 N, Z,
-PCwrite, AddrSel, MemRead,
+PCwrite, MemRead,
 MemWrite, IRload, R1Sel, MDRload,
 R1R2Load, ALU1, ALU2, ALUop,
 ALUOutWrite, RFWrite, RegIn, FlagWrite, cycles
@@ -29,13 +29,13 @@ ALUOutWrite, RFWrite, RegIn, FlagWrite, cycles
 	input	[3:0] instr;
 	input	N, Z;
 	input	reset, clock;
-	output	PCwrite, AddrSel, MemRead, MemWrite, IRload, R1Sel, MDRload;
+	output	PCwrite, MemRead, MemWrite, IRload, R1Sel, MDRload;
 	output	R1R2Load, ALU1, ALUOutWrite, RFWrite, RegIn, FlagWrite;
 	output	[2:0] ALU2, ALUop;
 	output	[15:0] cycles;
 	
 	reg [3:0]	state;
-	reg	PCwrite, AddrSel, MemRead, MemWrite, IRload, R1Sel, MDRload;
+	reg	PCwrite, MemRead, MemWrite, IRload, R1Sel, MDRload;
 	reg	R1R2Load, ALU1, ALUOutWrite, RFWrite, RegIn, FlagWrite;
 	reg	[2:0] ALU2, ALUop;
 	reg [15:0] cycles;
@@ -99,7 +99,6 @@ ALUOutWrite, RFWrite, RegIn, FlagWrite, cycles
 			reset_s:	//control = 19'b0000000000000000000;
 				begin
 					PCwrite = 0;
-					AddrSel = 0;
 					MemRead = 0;
 					MemWrite = 0;
 					IRload = 0;
@@ -117,7 +116,6 @@ ALUOutWrite, RFWrite, RegIn, FlagWrite, cycles
 			c1: 		//control = 19'b1110100000010000000;
 				begin
 					PCwrite = 1;
-					AddrSel = 1;
 					MemRead = 1;
 					MemWrite = 0;
 					IRload = 1;
@@ -135,7 +133,6 @@ ALUOutWrite, RFWrite, RegIn, FlagWrite, cycles
 			c2: 		//control = 19'b0000000100000000000;
 				begin
 					PCwrite = 0;
-					AddrSel = 0;
 					MemRead = 0;
 					MemWrite = 0;
 					IRload = 0;
@@ -155,7 +152,6 @@ ALUOutWrite, RFWrite, RegIn, FlagWrite, cycles
 								//control = 19'b0000000010000001001;
 							begin
 								PCwrite = 0;
-								AddrSel = 0;
 								MemRead = 0;
 								MemWrite = 0;
 								IRload = 0;
@@ -174,7 +170,6 @@ ALUOutWrite, RFWrite, RegIn, FlagWrite, cycles
 								//control = 19'b0000000010000011001;
 							begin
 								PCwrite = 0;
-								AddrSel = 0;
 								MemRead = 0;
 								MemWrite = 0;
 								IRload = 0;
@@ -193,7 +188,6 @@ ALUOutWrite, RFWrite, RegIn, FlagWrite, cycles
 								//control = 19'b0000000010000111001;
 							begin
 								PCwrite = 0;
-								AddrSel = 0;
 								MemRead = 0;
 								MemWrite = 0;
 								IRload = 0;
@@ -212,7 +206,6 @@ ALUOutWrite, RFWrite, RegIn, FlagWrite, cycles
 			c4_asnsh: 	//control = 19'b0000000000000000100;
 				begin
 					PCwrite = 0;
-					AddrSel = 0;
 					MemRead = 0;
 					MemWrite = 0;
 					IRload = 0;
@@ -230,7 +223,6 @@ ALUOutWrite, RFWrite, RegIn, FlagWrite, cycles
 			c3_shift: 	//control = 19'b0000000011001001001;
 				begin
 					PCwrite = 0;
-					AddrSel = 0;
 					MemRead = 0;
 					MemWrite = 0;
 					IRload = 0;
@@ -248,7 +240,6 @@ ALUOutWrite, RFWrite, RegIn, FlagWrite, cycles
 			c3_ori: 	//control = 19'b0000010100000000000;
 				begin
 					PCwrite = 0;
-					AddrSel = 0;
 					MemRead = 0;
 					MemWrite = 0;
 					IRload = 0;
@@ -266,7 +257,6 @@ ALUOutWrite, RFWrite, RegIn, FlagWrite, cycles
 			c4_ori: 	//control = 19'b0000000010110101001;
 				begin
 					PCwrite = 0;
-					AddrSel = 0;
 					MemRead = 0;
 					MemWrite = 0;
 					IRload = 0;
@@ -284,7 +274,6 @@ ALUOutWrite, RFWrite, RegIn, FlagWrite, cycles
 			c5_ori: 	//control = 19'b0000010000000000100;
 				begin
 					PCwrite = 0;
-					AddrSel = 0;
 					MemRead = 0;
 					MemWrite = 0;
 					IRload = 0;
@@ -302,7 +291,6 @@ ALUOutWrite, RFWrite, RegIn, FlagWrite, cycles
 			c3_load: 	//control = 19'b0010001000000000000;
 				begin
 					PCwrite = 0;
-					AddrSel = 0;
 					MemRead = 1;
 					MemWrite = 0;
 					IRload = 0;
@@ -320,7 +308,6 @@ ALUOutWrite, RFWrite, RegIn, FlagWrite, cycles
 			c4_load: 	//control = 19'b0000000000000001110;
 				begin
 					PCwrite = 0;
-					AddrSel = 0;
 					MemRead = 0;
 					MemWrite = 0;
 					IRload = 0;
@@ -338,7 +325,6 @@ ALUOutWrite, RFWrite, RegIn, FlagWrite, cycles
 			c3_store: 	//control = 19'b0001000000000000000;
 				begin
 					PCwrite = 0;
-					AddrSel = 0;
 					MemRead = 0;
 					MemWrite = 1;
 					IRload = 0;
@@ -356,7 +342,6 @@ ALUOutWrite, RFWrite, RegIn, FlagWrite, cycles
 			c3_bpz: 	//control = {~N,18'b000000000100000000};
 				begin
 					PCwrite = ~N;
-					AddrSel = 0;
 					MemRead = 0;
 					MemWrite = 0;
 					IRload = 0;
@@ -374,7 +359,6 @@ ALUOutWrite, RFWrite, RegIn, FlagWrite, cycles
 			c3_bz: 		//control = {Z,18'b000000000100000000};
 				begin
 					PCwrite = Z;
-					AddrSel = 0;
 					MemRead = 0;
 					MemWrite = 0;
 					IRload = 0;
@@ -392,7 +376,6 @@ ALUOutWrite, RFWrite, RegIn, FlagWrite, cycles
 			c3_bnz: 	//control = {~Z,18'b000000000100000000};
 				begin
 					PCwrite = ~Z;
-					AddrSel = 0;
 					MemRead = 0;
 					MemWrite = 0;
 					IRload = 0;
@@ -410,7 +393,6 @@ ALUOutWrite, RFWrite, RegIn, FlagWrite, cycles
 			default:	//control = 19'b0000000000000000000;
 				begin
 					PCwrite = 0;
-					AddrSel = 0;
 					MemRead = 0;
 					MemWrite = 0;
 					IRload = 0;
