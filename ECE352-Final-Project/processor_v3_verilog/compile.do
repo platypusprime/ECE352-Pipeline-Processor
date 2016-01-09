@@ -12,6 +12,6 @@ vlog -vlog01compat -work work ALU.v
 vlog -vlog01compat -work work RF.v
 vlog -vlog01compat -work work extend.v
 vlog -vlog01compat -work work HEX.v
-vlog -vlog01compat -work work FSM.v
+vlog -vlog01compat -work work PipelineControl.v
 vlog -vlog01compat -work work multicycle_tb.v
 
