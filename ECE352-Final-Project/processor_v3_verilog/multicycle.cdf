@@ -6,7 +6,7 @@ JedecChain;
 	P ActionCode(Ign)
 		Device PartName(SOCVHPS) MfrSpec(OpMask(0));
 	P ActionCode(Cfg)
-		Device PartName(5CSEMA5F31) Path("W:/desl/ECE352_Project/processor_v3_verilog/") File("multicycle.sof") MfrSpec(OpMask(1));
+		Device PartName(5CSEMA5F31) Path("W:/ECE352_Project/processor_v3_verilog/") File("multicycle.sof") MfrSpec(OpMask(1));
 
 ChainEnd;
 

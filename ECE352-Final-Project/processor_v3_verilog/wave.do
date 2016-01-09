@@ -11,6 +11,7 @@ add wave -noupdate -divider {multicycle.v inputs}
 add wave -noupdate /multicycle_tb/KEY
 add wave -noupdate /multicycle_tb/SW
 add wave -noupdate -divider {multicycle.v outputs}
+add wave -noupdate /multicycle_tb/LEDG
 add wave -noupdate /multicycle_tb/LEDR
 add wave -noupdate /multicycle_tb/HEX0
 add wave -noupdate /multicycle_tb/HEX1
@@ -18,6 +19,8 @@ add wave -noupdate /multicycle_tb/HEX2
 add wave -noupdate /multicycle_tb/HEX3
 add wave -noupdate /multicycle_tb/HEX4
 add wave -noupdate /multicycle_tb/HEX5
+add wave -noupdate /multicycle_tb/HEX6
+add wave -noupdate /multicycle_tb/HEX7
 TreeUpdate [SetDefaultTree]
 WaveRestoreCursors {{Cursor 1} {2500 ns} 0}
 configure wave -namecolwidth 227
